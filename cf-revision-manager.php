@@ -166,5 +166,5 @@ class cf_revisions {
 	}
 }
 
-#include('tests.php');
+include('tests.php');
 ?>

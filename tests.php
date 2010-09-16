@@ -4,7 +4,7 @@
 		$config[] = array(
 			'title' => 'Block title',	// required, Title of the Meta Box
 			'description' => 'Block Description', 		// optional, Description text that appears at the top of the Meta Box
-			'type' => array('page'), 	// required, Which edit screen to add to. Use array('page','post') to add to both at the same time
+			'type' => array('page', 'post'), 	// required, Which edit screen to add to. Use array('page','post') to add to both at the same time
 			'id' => 'cf-revisions-post-meta-test', 		// required, unique id for the Meta Box
 			'add_to_sortables' => true,	// optional, this is the default behavior
 			'context' => 'normal',		// optional, sets the location of the metabox in the edit page.  Other posibilites are 'advanced' or 'side' (this sets the meta box to apear in the rt sidebar of the edit page)
