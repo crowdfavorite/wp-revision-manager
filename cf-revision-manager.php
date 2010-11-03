@@ -9,7 +9,6 @@ Author URI: http://crowdfavorite.com
 */
 
 define('CF_REVISIONS_DEBUG', false);
-
 function cfr_register_metadata($postmeta_key, $display_func = '') {
 	static $cfr;
 	if (empty($cfr)) {

@@ -1,5 +1,4 @@
 <?php
-		
 	function cf_revisions_post_meta_config($config) {
 		$config[] = array(
 			'title' => 'Block title',	// required, Title of the Meta Box
