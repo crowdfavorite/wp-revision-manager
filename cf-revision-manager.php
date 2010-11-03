@@ -166,5 +166,7 @@ class cf_revisions {
 	}
 }
 
-include('tests.php');
+if (defined('CF_REVISIONS_DEBUG') && CF_REVISIONS_DEBUG) {
+	include('tests.php');
+}
 ?>
