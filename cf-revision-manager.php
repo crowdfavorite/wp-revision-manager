@@ -22,11 +22,11 @@ class cf_revisions {
 	protected $postmeta_keys = array();
 	
 	public function __construct() {
-		if (is_admin()) {
-			# save & restore
-			add_action('save_post', array($this, 'save_post_revision'), 10, 2);
-			add_action('wp_restore_post_revision', array($this, 'restore_post_revision'), 10, 2);
-		
+		# save & restore
+		add_action('save_post', array($this, 'save_post_revision'), 10, 2);
+		add_action('wp_restore_post_revision', array($this, 'restore_post_revision'), 10, 2);
+
+		if (is_admin()) {		
 			# revision display
 			global $pagenow;
 			if ($pagenow == 'revision.php') {
