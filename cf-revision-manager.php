@@ -97,7 +97,7 @@ class cf_revisions {
 				}
 				else {
 					$this->log('Adding postmeta: '.$postmeta_key.' for post: '.$post_id);
-					add_metadata('post', $post_id, $postmeta_key, $postmeta_value.' from revision: '.$revision_id);
+					add_metadata('post', $post_id, $postmeta_key, $postmeta_value, true);
 				}
 				$this->log('Restored post_id: '.$post_id.' metadata from: '.$postmeta_key);
 			}
