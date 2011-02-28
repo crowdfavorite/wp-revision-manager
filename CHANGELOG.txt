@@ -1,0 +1,10 @@
+# CF Revision Manager Changelog
+
+## 0.9
+
+- various bug fixes and stability enhancements
+- first tag
+
+## 0.1
+
+- initial "release"

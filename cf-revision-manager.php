@@ -3,7 +3,7 @@
 Plugin Name: CF Revision Manager
 Plugin URI: http://crowdfavorite.com
 Description: Revision management functionality so that plugins can add metadata to revisions as well as restore that metadata from revisions
-Version: 0.1
+Version: 0.9
 Author: Crowd Favorite
 Author URI: http://crowdfavorite.com 
 */
