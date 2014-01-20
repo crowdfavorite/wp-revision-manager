@@ -1,5 +1,9 @@
 # CF Revision Manager Changelog
 
+## 1.0.2-dev
+
+- Slash postmeta keys and values appropriately
+
 ## 1.0.1
 
 - handle duplicate keys for single posts (as supported by WP)

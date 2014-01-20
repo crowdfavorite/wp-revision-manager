@@ -3,7 +3,7 @@
 Plugin Name: CF Revision Manager
 Plugin URI: http://crowdfavorite.com
 Description: Revision management functionality so that plugins can add metadata to revisions as well as restore that metadata from revisions
-Version: 1.0.1
+Version: 1.0.2-dev
 Author: Crowd Favorite
 Author URI: http://crowdfavorite.com 
 */
@@ -55,6 +55,28 @@ if (!class_exists('cf_revisions')) {
 			return (bool) count($this->postmeta_keys);
 		}
 	
+
+		/**
+		* The opposite of WordPress stripslashes_deep, since wp_slash
+		* only works on arrays of strings.
+		**/
+		public function slash_deep($value) {
+			if (is_array($value)) {
+				$value = array_map(array($this, 'slash_deep'), $value);
+			}
+			else if (is_object($value)) {
+				$vars = get_object_vars($value);
+				foreach ($vars as $key => $data) {
+					$value->{$key} = $this->slash_deep($data);
+				}
+			} else if (is_string($value)) {
+				$value = wp_slash($value);
+			}
+
+			return $value;
+		}
+
+
 		/**
 		 * Save the revision data
 		 *
@@ -72,7 +94,7 @@ if (!class_exists('cf_revisions')) {
 			
 				if ($postmeta_values = get_post_meta($post->post_parent, $postmeta_key)) {
 					foreach ($postmeta_values as $postmeta_value) {
-						add_metadata('post', $post_id, $postmeta_key, $postmeta_value);
+						add_metadata('post', $post_id, $this->slash_deep($postmeta_key), $this->slash_deep($postmeta_value));
 					}
 					$this->log('Added postmeta for: '.$postmeta_key.' to revision: '.$post_id.' from post: '.$post->post_parent);
 				}
@@ -93,11 +115,12 @@ if (!class_exists('cf_revisions')) {
 		
 			foreach ($this->postmeta_keys as $postmeta_type) {
 				$postmeta_key = $postmeta_type['postmeta_key'];
-				delete_metadata('post', $post_id, $postmeta_key);
+				delete_metadata('post', $post_id, $this->slash_deep($postmeta_key));
+				// get_metadata does not unslash
 				if ($postmeta_values = get_metadata('post', $revision_id, $postmeta_key)) {
 					foreach ($postmeta_values as $postmeta_value) {
 						$this->log('Setting postmeta: '.$postmeta_key.' for post: '.$post_id);
-						add_metadata('post', $post_id, $postmeta_key, $postmeta_value, true);
+						add_metadata('post', $post_id, $this->slash_deep($postmeta_key), $this->slash_deep($postmeta_value), true);
 					}
 					$this->log('Restored post_id: '.$post_id.' metadata from: '.$postmeta_key);
 				}
