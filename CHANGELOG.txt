@@ -1,6 +1,6 @@
 # CF Revision Manager Changelog
 
-## 1.0.2-dev
+## 1.0.2
 
 - Slash postmeta keys and values appropriately
 
