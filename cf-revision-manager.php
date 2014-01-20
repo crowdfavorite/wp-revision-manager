@@ -3,7 +3,7 @@
 Plugin Name: CF Revision Manager
 Plugin URI: http://crowdfavorite.com
 Description: Revision management functionality so that plugins can add metadata to revisions as well as restore that metadata from revisions
-Version: 1.0
+Version: 1.0.2
 Author: Crowd Favorite
 Author URI: http://crowdfavorite.com 
 */
@@ -55,6 +55,28 @@ if (!class_exists('cf_revisions')) {
 			return (bool) count($this->postmeta_keys);
 		}
 	
+
+		/**
+		* The opposite of WordPress stripslashes_deep, since wp_slash
+		* only works on arrays of strings.
+		**/
+		public function slash_deep($value) {
+			if (is_array($value)) {
+				$value = array_map(array($this, 'slash_deep'), $value);
+			}
+			else if (is_object($value)) {
+				$vars = get_object_vars($value);
+				foreach ($vars as $key => $data) {
+					$value->{$key} = $this->slash_deep($data);
+				}
+			} else if (is_string($value)) {
+				$value = wp_slash($value);
+			}
+
+			return $value;
+		}
+
+
 		/**
 		 * Save the revision data
 		 *
@@ -70,8 +92,10 @@ if (!class_exists('cf_revisions')) {
 			foreach ($this->postmeta_keys as $postmeta_type) {
 				$postmeta_key = $postmeta_type['postmeta_key'];
 			
-				if ($postmeta_value = get_post_meta($post->post_parent, $postmeta_key, true)) {
-					add_metadata('post', $post_id, $postmeta_key, $postmeta_value);
+				if ($postmeta_values = get_post_meta($post->post_parent, $postmeta_key)) {
+					foreach ($postmeta_values as $postmeta_value) {
+						add_metadata('post', $post_id, $this->slash_deep($postmeta_key), $this->slash_deep($postmeta_value));
+					}
 					$this->log('Added postmeta for: '.$postmeta_key.' to revision: '.$post_id.' from post: '.$post->post_parent);
 				}
 			}
@@ -91,15 +115,12 @@ if (!class_exists('cf_revisions')) {
 		
 			foreach ($this->postmeta_keys as $postmeta_type) {
 				$postmeta_key = $postmeta_type['postmeta_key'];
-			
-				if ($postmeta_value = get_metadata('post', $revision_id, $postmeta_key, true)) {
-					if (get_metadata('post', $post_id, $postmeta_key, true)) {
-						$this->log('Updating postmeta: '.$postmeta_key.' for post: '.$post_id.' from revision: '.$revision_id);
-						update_metadata('post', $post_id, $postmeta_key, $postmeta_value);
-					}
-					else {
-						$this->log('Adding postmeta: '.$postmeta_key.' for post: '.$post_id);
-						add_metadata('post', $post_id, $postmeta_key, $postmeta_value, true);
+				delete_metadata('post', $post_id, $this->slash_deep($postmeta_key));
+				// get_metadata does not unslash
+				if ($postmeta_values = get_metadata('post', $revision_id, $postmeta_key)) {
+					foreach ($postmeta_values as $postmeta_value) {
+						$this->log('Setting postmeta: '.$postmeta_key.' for post: '.$post_id);
+						add_metadata('post', $post_id, $this->slash_deep($postmeta_key), $this->slash_deep($postmeta_value), true);
 					}
 					$this->log('Restored post_id: '.$post_id.' metadata from: '.$postmeta_key);
 				}
@@ -107,7 +128,7 @@ if (!class_exists('cf_revisions')) {
 		}
 	
 		public function post_revision_fields($fields) {
-			$fields['postmeta'] = 'Post Meta';
+			$fields['postmeta'] = __('Post Meta');
 			return $fields;
 		}
 	
@@ -120,20 +141,27 @@ if (!class_exists('cf_revisions')) {
 				
 			$html = '<ul style="white-space: normal; margin-left: 1.5em; list-style: disc outside;">';
 			foreach ($this->postmeta_keys as $postmeta_type) {
+				$postmeta_html = '';
 				$postmeta_key = $postmeta_type['postmeta_key'];
-				$postmeta = maybe_unserialize(get_metadata('post', intval($_GET['revision']), $postmeta_key, true));
-
-				if (!empty($postmeta)) {
-					if (!empty($postmeta_type['display_func']) && function_exists($postmeta_type['display_func'])) {
-						$postmeta_html = $postmeta_type['display_func']($postmeta);
-					}
-					else {
-						$postmeta_rendered = (is_array($postmeta) || is_object($postmeta) ? print_r($postmeta, true) : $postmeta);
-						$postmeta_html = apply_filters('_wp_post_revision_field_postmeta_display', htmlspecialchars($postmeta_rendered), $postmeta_key, $postmeta);
+				$postmeta_values = get_metadata('post', intval($_GET['revision']), $postmeta_key);
+				if (is_array($postmeta_values)) {
+					foreach ($postmeta_values as $postmeta_value) {
+						$postmeta_html .= '<div>';
+						$postmeta_value = maybe_unserialize($postmeta_value);
+						if (!empty($postmeta_value)) {
+							if (!empty($postmeta_type['display_func']) && function_exists($postmeta_type['display_func'])) {
+								$postmeta_html .= $postmeta_type['display_func']($postmeta_value);
+							}
+							else {
+								$postmeta_rendered = (is_array($postmeta_value) || is_object($postmeta_value) ? print_r($postmeta_value, true) : $postmeta_value);
+								$postmeta_html .= apply_filters('_wp_post_revision_field_postmeta_display', htmlspecialchars($postmeta_rendered), $postmeta_key, $postmeta_value);
+							}
+						}
+						$postmeta_html .= '</div>';
 					}
 				}
 				else {
-					$postmeta_html = '*empty postmeta value*';
+					$postmeta_html .= '*empty postmeta value*';
 				}
 			
 				$html .= '
@@ -171,4 +199,3 @@ if (!class_exists('cf_revisions')) {
 		include('tests.php');
 	}
 }
-?>

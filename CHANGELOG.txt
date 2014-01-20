@@ -1,5 +1,13 @@
 # CF Revision Manager Changelog
 
+## 1.0.2
+
+- Slash postmeta keys and values appropriately
+
+## 1.0.1
+
+- handle duplicate keys for single posts (as supported by WP)
+
 ## 1.0
 
 - wrapping entire plugin in `class_exists` check since the primary use case at this time is to use it as a library
