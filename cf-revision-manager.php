@@ -5,48 +5,51 @@ Plugin URI: http://crowdfavorite.com
 Description: Revision management functionality so that plugins can add metadata to revisions as well as restore that metadata from revisions
 Version: 1.0.1
 Author: Crowd Favorite
-Author URI: http://crowdfavorite.com 
+Author URI: http://crowdfavorite.com
 */
+define(CF_REVISIONS_DEBUG, true);
 if (!class_exists('cf_revisions')) {
-	
+
 	define('CF_REVISIONS_DEBUG', false);
-	
+
 	function cfr_register_metadata($postmeta_key, $display_func = '') {
 		static $cfr;
 		if (empty($cfr)) {
 			$cfr = cf_revisions::get_instance();
-		} 
+		}
 		return $cfr->register($postmeta_key, $display_func);
 	}
 
 	class cf_revisions {
 		private static $_instance;
 		protected $postmeta_keys = array();
-	
+		protected $prefix = 'cfrm';
+
 		public function __construct() {
 			# save & restore
 			add_action('save_post', array($this, 'save_post_revision'), 10, 2);
 			add_action('wp_restore_post_revision', array($this, 'restore_post_revision'), 10, 2);
+			add_action('wp_save_post_revision_check_for_changes', array($this, 'has_changes'), 10, 2);
 
-			if (is_admin()) {		
+			if (is_admin()) {
 				# revision display
 				global $pagenow;
 				if ($pagenow == 'revision.php') {
 					add_filter('_wp_post_revision_fields', array($this, 'post_revision_fields'), 10, 1);
-					add_filter('_wp_post_revision_field_postmeta', array($this, 'post_revision_field'), 1, 2);
 				}
 			}
 		}
-	
-		public function register($postmeta_key, $display_func = '') {
+
+		public function register($postmeta_key, $display = 'deprecated') {
 			if (!in_array($postmeta_key, $this->postmeta_keys, true)) {
-				$this->postmeta_keys[] = compact('postmeta_key', 'display_func');
+				$this->postmeta_keys[] = $postmeta_key;
+				add_filter('_wp_post_revision_field_'.$this->prefix.$postmeta_key, array($this, 'post_revision_field'), 1, 4);
 			}
 			return true;
 		}
-	
+
 		/**
-		 * This is a paranoid check. There will be no object to register the 
+		 * This is a paranoid check. There will be no object to register the
 		 * actions and filters if nobody adds any postmeta to be handled
 		 *
 		 * @return bool
@@ -54,22 +57,22 @@ if (!class_exists('cf_revisions')) {
 		public function have_keys() {
 			return (bool) count($this->postmeta_keys);
 		}
-	
+
 		/**
 		 * Save the revision data
 		 *
-		 * @param int $post_id 
-		 * @param object $post 
+		 * @param int $post_id
+		 * @param object $post
 		 * @return void
 		 */
 		public function save_post_revision($post_id, $post) {
 			if ($post->post_type != 'revision' || !$this->have_keys()) {
 				return false;
 			}
-		
+
 			foreach ($this->postmeta_keys as $postmeta_type) {
-				$postmeta_key = $postmeta_type['postmeta_key'];
-			
+				$postmeta_key = $postmeta_type;
+
 				if ($postmeta_values = get_post_meta($post->post_parent, $postmeta_key)) {
 					foreach ($postmeta_values as $postmeta_value) {
 						add_metadata('post', $post_id, $postmeta_key, $postmeta_value);
@@ -78,21 +81,21 @@ if (!class_exists('cf_revisions')) {
 				}
 			}
 		}
-	
+
 		/**
 		 * Revert the revision data
 		 *
-		 * @param int $post_id 
-		 * @param int $revision_id 
+		 * @param int $post_id
+		 * @param int $revision_id
 		 * @return void
 		 */
 		public function restore_post_revision($post_id, $revision_id) {
 			if (!$this->have_keys()) {
 				return false;
 			}
-		
+
 			foreach ($this->postmeta_keys as $postmeta_type) {
-				$postmeta_key = $postmeta_type['postmeta_key'];
+				$postmeta_key = $postmeta_type;
 				delete_metadata('post', $post_id, $postmeta_key);
 				if ($postmeta_values = get_metadata('post', $revision_id, $postmeta_key)) {
 					foreach ($postmeta_values as $postmeta_value) {
@@ -103,56 +106,43 @@ if (!class_exists('cf_revisions')) {
 				}
 			}
 		}
-	
+
 		public function post_revision_fields($fields) {
-			$fields['postmeta'] = __('Post Meta');
+			$name_base = apply_filters('cfrm_compare_header', __('Post Meta: '));
+			foreach ($this->postmeta_keys as $key) {
+				$fields[$this->prefix.$key] = apply_filters('cfrm_compare_header_'.$key, $name_base.$key, $key);
+			}
 			return $fields;
 		}
-	
-		public function post_revision_field($field_id, $field) {
-			if ($field != 'postmeta' || !$this->have_keys()) {
-				return;
+
+		public function post_revision_field($field_id, $field, $comparison_post, $type) {
+
+			// remove prefix
+			if (substr($field, 0, strlen($this->prefix)) == $this->prefix) {
+
+				$key = substr($field, strlen($this->prefix));
 			}
-		
-			remove_filter('_wp_post_revision_field_postmeta', 'htmlspecialchars', 10, 2);
-				
-			$html = '<ul style="white-space: normal; margin-left: 1.5em; list-style: disc outside;">';
-			foreach ($this->postmeta_keys as $postmeta_type) {
-				$postmeta_html = '';
-				$postmeta_key = $postmeta_type['postmeta_key'];
-				$postmeta_values = get_metadata('post', intval($_GET['revision']), $postmeta_key);
-				if (is_array($postmeta_values)) {
-					foreach ($postmeta_values as $postmeta_value) {
-						$postmeta_html .= '<div>';
-						$postmeta_value = maybe_unserialize($postmeta_value);
-						if (!empty($postmeta_value)) {
-							if (!empty($postmeta_type['display_func']) && function_exists($postmeta_type['display_func'])) {
-								$postmeta_html .= $postmeta_type['display_func']($postmeta_value);
-							}
-							else {
-								$postmeta_rendered = (is_array($postmeta_value) || is_object($postmeta_value) ? print_r($postmeta_value, true) : $postmeta_value);
-								$postmeta_html .= apply_filters('_wp_post_revision_field_postmeta_display', htmlspecialchars($postmeta_rendered), $postmeta_key, $postmeta_value);
-							}
-						}
-						$postmeta_html .= '</div>';
-					}
-				}
-				else {
-					$postmeta_html .= '*empty postmeta value*';
-				}
-			
-				$html .= '
-					<li>
-						<h3><a href="#postmeta-'.$postmeta_key.'" onclick="jQuery(\'#postmeta-'.$postmeta_key.'\').slideToggle(); return false;">'.$postmeta_key.'</a></h3>
-						<div id="postmeta-'.$postmeta_key.'" style="display: none;">'.$postmeta_html.'</div>
-					</li>
-					';
+			else {
+				return '';
 			}
-			$html .= '</ul>';
-		
+
+			if (in_array($key, $this->postmeta_keys)) {
+				$html = print_r(get_post_meta($comparison_post->ID, $key, true),1). "\n";
+			}
 			return $html;
 		}
-	
+
+		public function has_changes() {
+			$names = apply_filters('cfr_html_names', $this->postmeta_keys);
+			// Array of post_meta_key => html_name
+
+			if ($this->have_keys()) {
+				foreach ($names as $meta_key => $html_name) {
+
+				}
+			}
+		}
+
 		/**
 		 * Singleton
 		 *
@@ -164,7 +154,7 @@ if (!class_exists('cf_revisions')) {
 			}
 			return self::$_instance;
 		}
-	
+
 		protected function log($message) {
 			if (CF_REVISIONS_DEBUG) {
 				error_log($message);
