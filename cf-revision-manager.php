@@ -36,7 +36,7 @@ if (!class_exists('cf_revisions')) {
 			if (is_admin()) {
 				# revision display
 				global $pagenow;
-				if ($pagenow == 'revision.php' ||  ('admin-ajax.php' && $_REQUEST['action'] == 'get-revision-diffs')) {
+				if ($pagenow == 'revision.php' ||  ('admin-ajax.php' && isset($_REQUEST['action']) && $_REQUEST['action'] == 'get-revision-diffs')) {
 					add_filter('_wp_post_revision_fields', array($this, 'post_revision_fields'), 10, 1);
 				}
 			}
