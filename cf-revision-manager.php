@@ -186,9 +186,9 @@ if (!class_exists('cf_revisions')) {
 
 			if ($this->have_keys()) {
 				foreach ($this->postmeta_keys as $meta_key) {
-					$old_data = get_post_meta($last_revision, $meta_key);
+					$old_data = get_post_meta($last_revision->ID, $meta_key);
 					$current_data = get_post_meta($post->ID, $meta_key, true);
-					if (serialize($old_data) != serialize($new_data)) {
+					if (serialize($old_data) != serialize($current_data)) {
 						$true_false = false;
 					}
 				}
