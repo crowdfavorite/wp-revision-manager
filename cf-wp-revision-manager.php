@@ -34,32 +34,7 @@ function cfrm_get_global( $key ) {
 }
 
 /**
- * Register js and css file.
- *
- * @since 1.0.1
- */
-function cfrm_enqueue_js() {
-	wp_register_script( 'cfrm-script', cfrm_get_global( 'directory_url' ) . 'cfrm-script.js', array( 'jquery' ) );
-	wp_register_style( 'cfrm-style', cfrm_get_global( 'directory_url' ) . 'cfrm-style.css' );
-}
-add_action( 'admin_enqueue_scripts', 'cfrm_enqueue_js' );
-
-/**
- * Enqueue js and css file in revision page.
- *
- * @since  1.0.1
- * @return void
- */
-function cfrm_admin_head() {
-	if ( ! empty( $_GET['page'] ) && $_GET['page'] == basename( __FILE__ ) ) {
-		wp_enqueue_style( 'cfrm-style' );
-		wp_enqueue_script( 'cfrm-script' );
-	}
-}
-add_action( 'admin_head', 'cfrm_admin_head' );
-
-/**
- * Register revision manger admin menu.
+ * Create revision manger admin menu.
  *
  * @since  1.0.1
  * @return void
@@ -73,7 +48,6 @@ function cfrm_admin_menu() {
         'cfrm_admin_form'
     );
 }
-add_action( 'admin_menu', 'cfrm_admin_menu' );
 
 /**
  * Revision Manger admin form callback function.
@@ -83,9 +57,9 @@ add_action( 'admin_menu', 'cfrm_admin_menu' );
  */
 function cfrm_admin_form() {
 	//include_once cfase_get_global( 'directory_path' ) . 'includes/admin-form.php';
-	global $CFR_KEYS_REQUIRED;
-	$required_keys = $CFR_KEYS_REQUIRED;
-	$keys = array_diff( cfrm_meta_keys(), excluded_keys(), $required_keys );
+	$required_keys = required_keys();
+	$keys = array_diff( meta_keys(), excluded_keys(), $required_keys );
+
 ?>
 <div class="wrap">
 	<h2><?php _e( 'CF Revision Manager', 'cfrm' ); ?></h2>
@@ -136,14 +110,9 @@ function cfrm_admin_form() {
 </div>
 <?php
 }
+add_action( 'admin_menu', 'cfrm_admin_menu' );
 
-/**
- * Fetch all meta key from postmeta.
- *
- * @since  1.0.1
- * @return void
- */
-function cfrm_meta_keys() {
+function meta_keys() {
 	global $wpdb;
 	return $wpdb->get_col("
 		SELECT DISTINCT `meta_key`
@@ -152,18 +121,11 @@ function cfrm_meta_keys() {
 	");
 }
 
-/*function required_keys() {
+function required_keys() {
 	global $CFR_KEYS_REQUIRED;
 	return $CFR_KEYS_REQUIRED;
-}*/
+}
 
-
-/**
- * Add filter to exclude meta keys.
- *
- * @since  1.0.1
- * @return void
- */
 function excluded_keys() {
 	return apply_filters(
 		'cf_revision_manager_excluded_keys',
@@ -174,12 +136,6 @@ function excluded_keys() {
 	);
 }
 
-/**
- * Return selected meta keys.
- *
- * @since  1.0.1
- * @return void
- */
 function selected_keys() {
 	$selected = get_option('cf_revision_manager_meta_keys');
 	if (empty($selected)) {
@@ -244,18 +200,13 @@ function request_handler() {
 		}
 	}
 }
-add_action( 'admin_init', 'request_handler' );
 
 function save_settings( $keys ) {
 	update_option( 'cf_revision_manager_meta_keys', ( array ) $keys );
 }
+add_action( 'admin_init', 'request_handler' );
 
-/**
- * Display admin notices.
- *
- * @since  1.0.1
- */
-function cfrm_admin_notices() {
+function admin_notices() {
 	$notice = '';
 	$class = 'updated';
 	if ( isset( $_GET['cf_admin_notice'] ) ) {
@@ -270,53 +221,5 @@ function cfrm_admin_notices() {
 ';
 	}
 }
-add_action( 'admin_notices', 'cfrm_admin_notices' );
-
-/**
- * Save the revision data
- *
- * @param int $post_id
- * @param object $post
- * @return void
- */
-function cfrm_save_post_revision( $post_id, $post ) {
-	global $CFRM_POSTMETA_KEYS;
-	if ( $post->post_type != 'revision' || ! have_keys() ) {
-		return false;
-	}
-
-	foreach ( $CFRM_POSTMETA_KEYS as $postmeta_type ) {
-		$postmeta_key = $postmeta_type['postmeta_key'];
-
-		if ( $postmeta_value = get_post_meta( $post->post_parent, $postmeta_key, true ) ) {
-			add_metadata( 'post', $post_id, $postmeta_key, $postmeta_value );
-			log( 'Added postmeta for: '.$postmeta_key.' to revision: '.$post_id.' from post: '.$post->post_parent );
-		}
-	}
-}
-add_action( 'save_post', 'cfrm_save_post_revision', 10, 2 );
-
-/**
- * This is a paranoid check. There will be no object to register the
- * actions and filters if nobody adds any postmeta to be handled
- *
- * @return bool
- */
-function have_keys() {
-	global $CFRM_POSTMETA_KEYS;
-	return (bool) count( $CFRM_POSTMETA_KEYS );
-}
-
-/*function log( $message ) {
-	if ( CF_REVISIONS_DEBUG ) {
-		error_log( $message );
-	}
-}*/
-
-
-
-
-
-
-
+add_action( 'admin_notices', 'admin_notices' );
 
