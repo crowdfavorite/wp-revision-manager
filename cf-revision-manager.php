@@ -3,7 +3,7 @@
 Plugin Name: CF Revision Manager
 Plugin URI: http://crowdfavorite.com
 Description: Revision management functionality so that plugins can add metadata to revisions as well as restore that metadata from revisions.
-Version: 1.0.1
+Version: 2.0.0
 Author: Crowd Favorite
 Author URI: https://crowdfavorite.com/
 License: GPL2
@@ -20,7 +20,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 /**
 * Fetch global variables declared for use anywhere in the plugin
 *
-* @since 1.0.1
+* @since 2.0.0
 *
 * @return mixed Returns the global value depending on the key being provided
 */
@@ -36,7 +36,7 @@ function cfrm_get_global( $key ) {
 /**
  * Register js and css file.
  *
- * @since 1.0.1
+ * @since 2.0.0
  */
 function cfrm_enqueue_js() {
 	wp_register_script( 'cfrm-script', cfrm_get_global( 'directory_url' ) . 'cfrm-script.js', array( 'jquery' ) );
@@ -45,23 +45,10 @@ function cfrm_enqueue_js() {
 add_action( 'admin_enqueue_scripts', 'cfrm_enqueue_js' );
 
 /**
- * Enqueue js and css file in revision page.
- *
- * @since  1.0.1
- * @return void
- */
-function cfrm_admin_head() {
-	if ( ! empty( $_GET['page'] ) && $_GET['page'] == basename( __FILE__ ) ) {
-		wp_enqueue_style( 'cfrm-style' );
-		wp_enqueue_script( 'cfrm-script' );
-	}
-}
-add_action( 'admin_head', 'cfrm_admin_head' );
-
-/**
  * Register revision manger admin menu.
  *
- * @since  1.0.1
+ * @since  2.0.0
+ *
  * @return void
  */
 function cfrm_admin_menu() {
@@ -78,11 +65,14 @@ add_action( 'admin_menu', 'cfrm_admin_menu' );
 /**
  * Revision Manger admin form callback function.
  *
- * @since  1.0.1
+ * @since  2.0.0
+ *
  * @return void
  */
 function cfrm_admin_form() {
 	//include_once cfase_get_global( 'directory_path' ) . 'includes/admin-form.php';
+	wp_enqueue_style( 'cfrm-style' );
+	wp_enqueue_script( 'cfrm-script' );
 	global $CFR_KEYS_REQUIRED;
 	$required_keys = $CFR_KEYS_REQUIRED;
 	$keys = array_diff( cfrm_meta_keys(), excluded_keys(), $required_keys );
@@ -91,45 +81,44 @@ function cfrm_admin_form() {
 	<h2><?php _e( 'CF Revision Manager', 'cfrm' ); ?></h2>
 <?php
 		if ( ! count( $keys ) ) {
-			echo '<p>'.__( 'No custom fields found.', 'cfrm' ).'</p>';
-		}
-		else {
-			echo '<form id="cfr_revision_manager_form" name="cfr_revision_manager_form" action="'.admin_url('options-general.php').'" method="post">
-				<p>'.__( 'A plugin or theme has specified that the following custom fields need to included in revisions.', 'cfrm' ).'</p>';
+			echo '<p>' . __( 'No custom fields found.', 'cfrm' ) . '</p>';
+		} else {
+			echo '<form id="cfr_revision_manager_form" name="cfr_revision_manager_form" action="' . admin_url( 'options-general.php' ) . '" method="post">
+				<p>' . __( 'A plugin or theme has specified that the following custom fields need to included in revisions.', 'cfrm' ) . '</p>';
 			if ( count( $required_keys ) ) {
 				echo '<div>
 				<ul id="cfr_revision_manager_keys_required">';
-				foreach ($required_keys as $key) {
+				foreach ( $required_keys as $key ) {
 					$checked = $key;
 					$disabled = $key;
-					$id = 'cf_revision_manager_key_'.esc_attr($key);
+					$id = 'cf_revision_manager_key_' . esc_attr( $key );
 					echo '<li>
-						<input type="checkbox" name="revision_manager_keys[]" id="'.$id.'" value="'.esc_attr($key).'" '.checked($key, $checked, false).' '.disabled($key, $disabled, false).' />
-						<label for="'.$id.'">'.esc_html($key).'</label>
+						<input type="checkbox" name="revision_manager_keys[]" id="' . $id . '" value="' . esc_attr( $key ) . '" ' . checked( $key, $checked, false ) . ' ' . disabled( $key, $disabled, false ) . ' />
+						<label for="' . $id . '">' . esc_html( $key ) . '</label>
 					</li>';
 				}
 				echo '</ul>
 				</div>';
 			}
-			echo '<p class="clearfix">'.__('Below is a list of selectable custom fields for this site. Choose the ones you would like to have included in your revisions.', 'cfrm').'</p>
+			echo '<p class="clearfix">' . __( 'Below is a list of selectable custom fields for this site. Choose the ones you would like to have included in your revisions.', 'cfrm' ).'</p>
 				<div>
 				<ul id="cfr_revision_manager_keys">';
-			foreach ($keys as $key) {
-				$checked = (in_array($key, selected_keys()) ? $key : '');
+			foreach ( $keys as $key ) {
+				$checked = ( in_array( $key, selected_keys() ) ? $key : '' );
 				$disabled = '';
-				$id = 'cf_revision_manager_key_'.esc_attr($key);
+				$id = 'cf_revision_manager_key_' . esc_attr( $key );
 				echo '<li>
-					<input type="checkbox" name="revision_manager_keys[]" id="'.$id.'" value="'.esc_attr($key).'" '.checked($key, $checked, false).' '.disabled($key, $disabled, false).' />
-					<label for="'.$id.'">'.esc_html($key).'</label>
+					<input type="checkbox" name="revision_manager_keys[]" id="' . $id . '" value="' . esc_attr( $key ) . '" ' . checked( $key, $checked, false ) . ' ' . disabled( $key, $disabled, false ) . ' />
+					<label for="' . $id . '">' . esc_html( $key ) . '</label>
 				</li>';
 			}
 			echo '</ul>
 				</div>
 				<p class="submit">
-				<input type="submit" name="submit_button" class="button-primary" value="'.__('Save').'" />
+				<input type="submit" name="submit_button" class="button-primary" value="' . __( 'Save' ) . '" />
 				</p>
 				<input type="hidden" name="cf_action" value="cfr_save_keys" class="hidden" style="display: none;" />
-				'.wp_nonce_field('cfr_save_keys', '_wpnonce', true, false).wp_referer_field(false).'
+				' . wp_nonce_field( 'cfr_save_keys', '_wpnonce', true, false ) . wp_referer_field( false ) . '
 			</form>';
 		}
 ?>
@@ -140,8 +129,9 @@ function cfrm_admin_form() {
 /**
  * Fetch all meta key from postmeta.
  *
- * @since  1.0.1
- * @return void
+ * @since  2.0.0
+ *
+ * @return array returns meta key.
  */
 function cfrm_meta_keys() {
 	global $wpdb;
@@ -157,12 +147,12 @@ function cfrm_meta_keys() {
 	return $CFR_KEYS_REQUIRED;
 }*/
 
-
 /**
  * Add filter to exclude meta keys.
  *
- * @since  1.0.1
- * @return void
+ * @since  2.0.0
+ *
+ * @return array returns meta key.
  */
 function excluded_keys() {
 	return apply_filters(
@@ -177,7 +167,7 @@ function excluded_keys() {
 /**
  * Return selected meta keys.
  *
- * @since  1.0.1
+ * @since  2.0.0
  * @return void
  */
 function selected_keys() {
@@ -253,7 +243,7 @@ function save_settings( $keys ) {
 /**
  * Display admin notices.
  *
- * @since  1.0.1
+ * @since  2.0.0
  */
 function cfrm_admin_notices() {
 	$notice = '';
@@ -290,7 +280,7 @@ function cfrm_save_post_revision( $post_id, $post ) {
 
 		if ( $postmeta_value = get_post_meta( $post->post_parent, $postmeta_key, true ) ) {
 			add_metadata( 'post', $post_id, $postmeta_key, $postmeta_value );
-			log( 'Added postmeta for: '.$postmeta_key.' to revision: '.$post_id.' from post: '.$post->post_parent );
+			log_msg( 'Added postmeta for: '.$postmeta_key.' to revision: '.$post_id.' from post: '.$post->post_parent );
 		}
 	}
 }
@@ -307,16 +297,96 @@ function have_keys() {
 	return (bool) count( $CFRM_POSTMETA_KEYS );
 }
 
-/*function log( $message ) {
-	if ( CF_REVISIONS_DEBUG ) {
-		error_log( $message );
+/**
+ * Revert the revision data
+ *
+ * @param int $post_id
+ * @param int $revision_id
+ * @return void
+ */
+function restore_post_revision( $post_id, $revision_id ) {
+	global $CFRM_POSTMETA_KEYS;
+	if ( ! have_keys() ) {
+		return false;
 	}
+
+	foreach ( $CFRM_POSTMETA_KEYS as $postmeta_type ) {
+		$postmeta_key = $postmeta_type['postmeta_key'];
+
+		if ( $postmeta_value = get_metadata( 'post', $revision_id, $postmeta_key, true ) ) {
+			if ( get_metadata( 'post', $post_id, $postmeta_key, true ) ) {
+				log_msg( 'Updating postmeta: '.$postmeta_key.' for post: '.$post_id.' from revision: '.$revision_id );
+				update_metadata( 'post', $post_id, $postmeta_key, $postmeta_value );
+			}
+			else {
+				log_msg( 'Adding postmeta: '.$postmeta_key.' for post: '.$post_id );
+				add_metadata( 'post', $post_id, $postmeta_key, $postmeta_value, true );
+			}
+			log_msg( 'Restored post_id: '.$post_id.' metadata from: '.$postmeta_key );
+		}
+	}
+}
+add_action( 'wp_restore_post_revision', 'restore_post_revision', 10, 2 );
+
+function log_msg( $message ) {
+	//if (CF_REVISIONS_DEBUG) {
+		error_log( $message );
+	//}
+}
+
+function cfrm_add_filter() {
+	global $pagenow;
+	if ( $pagenow == 'revision.php' ) {
+		add_filter( '_wp_post_revision_fields', 'post_revision_fields', 10, 1 );
+		add_filter( '_wp_post_revision_field_postmeta', 'post_revision_field', 1, 2);
+	}
+}
+add_action( 'admin_init', 'cfrm_add_filter' );
+
+/*function post_revision_fields( $fields ) {
+	$fields['postmeta'] = 'Post Meta';
+	return $fields;
 }*/
 
+/*function post_revision_field( $field_id, $field ) {
 
+	global $CFRM_POSTMETA_KEYS;
+	if ( $field != 'postmeta' || ! have_keys() ) {
+		return;
+	}
 
+	//remove_filter( '_wp_post_revision_field_postmeta', 'htmlspecialchars', 10, 2 );
 
+	//$html = '<ul style="white-space: normal; margin-left: 1.5em; list-style: disc outside;background-color:red;">';
+	foreach ( $CFRM_POSTMETA_KEYS as $postmeta_type ) {
 
+		$postmeta_key = $postmeta_type['postmeta_key'];
+		$postmeta = maybe_unserialize( get_metadata( 'post', intval( $_GET['revision'] ), $postmeta_key, true ) );
 
+		if ( ! empty( $postmeta ) ) {
 
+			if ( ! empty( $postmeta_type['display_func']) && function_exists( $postmeta_type['display_func'] ) ) {
+				$postmeta_html = $postmeta_type['display_func']( $postmeta );
+			}
+			else {
+				$postmeta_rendered = ( is_array( $postmeta ) || is_object( $postmeta ) ? print_r( $postmeta, true ) : $postmeta );
+				$postmeta_html = apply_filters( '_wp_post_revision_field_postmeta_display', htmlspecialchars( $postmeta_rendered ), $postmeta_key, $postmeta );
+			}
+		}
+		else {
+			echo "test";
+			$postmeta_html = '*empty postmeta value*';
+		}
+
+		$html .= '
+			<li>
+				<h3><a href="#postmeta-'.$postmeta_key.'" onclick="jQuery(\'#postmeta-'.$postmeta_key.'\').slideToggle(); return false;">'.$postmeta_key.'</a></h3>
+				<div id="postmeta-'.$postmeta_key.'" style="display: none;">'.$postmeta_html.'</div>
+			</li>
+			';
+	}
+	$html .= '</ul>';
+
+	return $html;
+}*/
 

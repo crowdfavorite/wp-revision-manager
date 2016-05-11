@@ -1,0 +1,26 @@
+# CF Revision Manager Changelog
+
+## 2.0.0
+
+- To work with WP 4.4+
+
+## 1.0.2
+
+- Slash postmeta keys and values appropriately
+
+## 1.0.1
+
+- handle duplicate keys for single posts (as supported by WP)
+
+## 1.0
+
+- wrapping entire plugin in `class_exists` check since the primary use case at this time is to use it as a library
+
+## 0.9
+
+- various bug fixes and stability enhancements
+- first tag
+
+## 0.1
+
+- initial "release"
