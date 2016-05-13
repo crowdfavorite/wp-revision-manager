@@ -18,29 +18,13 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 /**
-* Fetch global variables declared for use anywhere in the plugin
-*
-* @since 2.0.0
-*
-* @return mixed Returns the global value depending on the key being provided
-*/
-function cfrm_get_global( $key ) {
-	$cfrm                   = array();
-	$cfrm['plugin_file']    = __FILE__;
-	$cfrm['basename']       = plugin_basename( __FILE__ );
-	$cfrm['directory_path'] = plugin_dir_path( __FILE__ );
-	$cfrm['directory_url']  = plugin_dir_url( __FILE__ );
-	return array_key_exists( $key, $cfrm ) ? $cfrm[$key] : '';
-}
-
-/**
  * Register js and css file.
  *
  * @since 2.0.0
  */
 function cfrm_enqueue_js() {
-	wp_register_script( 'cfrm-script', cfrm_get_global( 'directory_url' ) . 'cfrm-script.js', array( 'jquery' ) );
-	wp_register_style( 'cfrm-style', cfrm_get_global( 'directory_url' ) . 'cfrm-style.css' );
+	wp_register_script( 'cfrm-script', plugin_dir_url( __FILE__ ) . 'cfrm-script.js', array( 'jquery' ) );
+	wp_register_style( 'cfrm-style', plugin_dir_url( __FILE__ ) . 'cfrm-style.css' );
 }
 add_action( 'admin_enqueue_scripts', 'cfrm_enqueue_js' );
 
@@ -70,12 +54,11 @@ add_action( 'admin_menu', 'cfrm_admin_menu' );
  * @return void
  */
 function cfrm_admin_form() {
-	//include_once cfase_get_global( 'directory_path' ) . 'includes/admin-form.php';
+	//include_once plugin_dir_path( __FILE__ ) . 'includes/admin-form.php';
 	wp_enqueue_style( 'cfrm-style' );
 	wp_enqueue_script( 'cfrm-script' );
-	global $CFR_KEYS_REQUIRED;
-	$required_keys = $CFR_KEYS_REQUIRED;
-	$keys = array_diff( cfrm_meta_keys(), excluded_keys(), $required_keys );
+	$required_keys = cfrm_set_required_keys();
+	$keys = array_diff( cfrm_get_distinct_meta_keys(), cfrm_excluded_keys(), $required_keys );
 ?>
 <div class="wrap">
 	<h2><?php _e( 'CF Revision Manager', 'cfrm' ); ?></h2>
@@ -104,7 +87,7 @@ function cfrm_admin_form() {
 				<div>
 				<ul id="cfr_revision_manager_keys">';
 			foreach ( $keys as $key ) {
-				$checked = ( in_array( $key, selected_keys() ) ? $key : '' );
+				$checked = ( in_array( $key, cfrm_get_selected_keys() ) ? $key : '' );
 				$disabled = '';
 				$id = 'cf_revision_manager_key_' . esc_attr( $key );
 				echo '<li>
@@ -115,7 +98,7 @@ function cfrm_admin_form() {
 			echo '</ul>
 				</div>
 				<p class="submit">
-				<input type="submit" name="submit_button" class="button-primary" value="' . __( 'Save' ) . '" />
+				<input type="submit" name="submit_button" class="button-primary" value="' . __( 'Save', 'cfrm' ) . '" />
 				</p>
 				<input type="hidden" name="cf_action" value="cfr_save_keys" class="hidden" style="display: none;" />
 				' . wp_nonce_field( 'cfr_save_keys', '_wpnonce', true, false ) . wp_referer_field( false ) . '
@@ -133,7 +116,7 @@ function cfrm_admin_form() {
  *
  * @return array returns meta key.
  */
-function cfrm_meta_keys() {
+function cfrm_get_distinct_meta_keys() {
 	global $wpdb;
 	return $wpdb->get_col("
 		SELECT DISTINCT `meta_key`
@@ -142,10 +125,17 @@ function cfrm_meta_keys() {
 	");
 }
 
-/*function required_keys() {
+/**
+ * Assign registered key in global variable.
+ *
+ * @since  2.0.0
+ *
+ * @return array returns registered key.
+ */
+function cfrm_set_required_keys() {
 	global $CFR_KEYS_REQUIRED;
 	return $CFR_KEYS_REQUIRED;
-}*/
+}
 
 /**
  * Add filter to exclude meta keys.
@@ -154,7 +144,7 @@ function cfrm_meta_keys() {
  *
  * @return array returns meta key.
  */
-function excluded_keys() {
+function cfrm_excluded_keys() {
 	return apply_filters(
 		'cf_revision_manager_excluded_keys',
 		array(
@@ -168,22 +158,30 @@ function excluded_keys() {
  * Return selected meta keys.
  *
  * @since  2.0.0
- * @return void
+ *
+ * @return array returns selected meta key.
  */
-function selected_keys() {
-	$selected = get_option('cf_revision_manager_meta_keys');
-	if (empty($selected)) {
+function cfrm_get_selected_keys() {
+	$selected = get_option( 'cf_revision_manager_meta_keys' );
+	if( empty( $selected ) ) {
 		$selected = array();
 	}
 	return $selected;
 }
 
+/**
+ * Register custom meta.
+ *
+ * @since  2.0.0
+ *
+ * @return void
+ */
 function cfrm_register_meta() {
 	if ( function_exists( 'cfr_register_metadata' ) ) {
-		cfr_register_metadata( 'foo' );
+		//cfr_register_metadata( 'foo', 'abcd' );
 		global $CFR_KEYS_REQUIRED;
-		$CFR_KEYS_REQUIRED = registered_keys();
-		$keys = selected_keys();
+		$CFR_KEYS_REQUIRED = cfr_get_registered_keys();
+		$keys = cfrm_get_selected_keys();
 		if ( count( $keys ) ) {
 			foreach ( $keys as $key ) {
 				cfr_register_metadata( $key );
@@ -193,26 +191,46 @@ function cfrm_register_meta() {
 }
 add_action( 'init', 'cfrm_register_meta', 999 );
 
+/**
+ * Register custom post meta.
+ *
+ * @since  2.0.0
+ *
+ * @return array returns registered meta key.
+ */
 function cfr_register_metadata( $postmeta_key, $display_func = '' ) {
-	return register( $postmeta_key, $display_func );
+	return cfr_process_metadata( $postmeta_key, $display_func );
 }
 
-function register( $postmeta_key, $display_func = '' ) {
+/**
+ * Process custom post meta.
+ *
+ * @since  2.0.0
+ *
+ * @return bool
+ */
+function cfr_process_metadata( $postmeta_key, $display_func = '' ) {
 	$postmeta_keys = array();
-	global $CFRM_POSTMETA_KEYS;
 	if ( ! in_array( $postmeta_key, $postmeta_keys, true ) ) {
 		$postmeta_keys[] = compact( 'postmeta_key', 'display_func' );
+		update_option( 'cfrm_set_postmeta_keys', array_unique( $postmeta_keys ) );
 	}
-	$CFRM_POSTMETA_KEYS = $postmeta_keys;
 	return true;
 }
 
-function registered_keys() {
+/**
+ * Get registered post meta keys.
+ *
+ * @since  2.0.0
+ *
+ * @return array returns unique postmeta key.
+ */
+function cfr_get_registered_keys() {
 	$keys = array();
-	global $CFRM_POSTMETA_KEYS;
+	$registered_keys = cfr_get_postmeta_keys();
 
-	if ( count( $CFRM_POSTMETA_KEYS ) ) {
-		foreach ( $CFRM_POSTMETA_KEYS as $key ) {
+	if ( count( $registered_keys ) ) {
+		foreach ( $registered_keys as $key ) {
 			extract( $key );
 			$keys[] = $postmeta_key;
 		}
@@ -220,7 +238,25 @@ function registered_keys() {
 	return array_unique($keys);
 }
 
-function request_handler() {
+/**
+ * Get post meta keys.
+ *
+ * @since  2.0.0
+ *
+ * @return array returns postmeta keys.
+ */
+function cfr_get_postmeta_keys() {
+	return get_option( 'cfrm_set_postmeta_keys', true );
+}
+
+/**
+ * Get registered post meta keys.
+ *
+ * @since  2.0.0
+ *
+ * @return array returns unique postmeta key.
+ */
+function cfr_request_handler() {
 	if ( isset( $_POST['cf_action'] ) ) {
 		switch ( $_POST['cf_action'] ) {
 			case 'cfr_save_keys':
@@ -228,15 +264,22 @@ function request_handler() {
 					wp_die( 'Oops, please try again.' );
 				}
 				$keys = ( isset( $_POST['revision_manager_keys'] ) && is_array( $_POST['revision_manager_keys'] ) ) ? $_POST['revision_manager_keys'] : array();
-				save_settings( $keys );
+				cfr_save_meta_keys_settings( $keys );
 				wp_redirect( admin_url( 'options-general.php?page='.basename( __FILE__ ) ).'&cf_admin_notice=cfr-1' );
 				break;
 		}
 	}
 }
-add_action( 'admin_init', 'request_handler' );
+add_action( 'admin_init', 'cfr_request_handler' );
 
-function save_settings( $keys ) {
+/**
+ * Save meta keys settings.
+ *
+ * @since  2.0.0
+ *
+ * @return void
+ */
+function cfr_save_meta_keys_settings( $keys ) {
 	update_option( 'cf_revision_manager_meta_keys', ( array ) $keys );
 }
 
@@ -244,6 +287,8 @@ function save_settings( $keys ) {
  * Display admin notices.
  *
  * @since  2.0.0
+ *
+ * @return void
  */
 function cfrm_admin_notices() {
 	$notice = '';
@@ -263,24 +308,25 @@ function cfrm_admin_notices() {
 add_action( 'admin_notices', 'cfrm_admin_notices' );
 
 /**
- * Save the revision data
+ * Save the revision data.
  *
  * @param int $post_id
  * @param object $post
+ *
  * @return void
  */
 function cfrm_save_post_revision( $post_id, $post ) {
-	global $CFRM_POSTMETA_KEYS;
-	if ( $post->post_type != 'revision' || ! have_keys() ) {
+	$cfrm_postmeta_keys = cfr_get_postmeta_keys();
+	if ( $post->post_type != 'revision' || ! cfrm_have_keys() ) {
 		return false;
 	}
 
-	foreach ( $CFRM_POSTMETA_KEYS as $postmeta_type ) {
+	foreach ( $cfrm_postmeta_keys as $postmeta_type ) {
 		$postmeta_key = $postmeta_type['postmeta_key'];
 
 		if ( $postmeta_value = get_post_meta( $post->post_parent, $postmeta_key, true ) ) {
 			add_metadata( 'post', $post_id, $postmeta_key, $postmeta_value );
-			log_msg( 'Added postmeta for: '.$postmeta_key.' to revision: '.$post_id.' from post: '.$post->post_parent );
+			cfrm_log_msg( 'Added postmeta for: '.$postmeta_key.' to revision: '.$post_id.' from post: '.$post->post_parent );
 		}
 	}
 }
@@ -292,9 +338,9 @@ add_action( 'save_post', 'cfrm_save_post_revision', 10, 2 );
  *
  * @return bool
  */
-function have_keys() {
-	global $CFRM_POSTMETA_KEYS;
-	return (bool) count( $CFRM_POSTMETA_KEYS );
+function cfrm_have_keys() {
+	$cfrm_postmeta_keys = cfr_get_postmeta_keys();
+	return (bool) count( $cfrm_postmeta_keys );
 }
 
 /**
@@ -304,36 +350,40 @@ function have_keys() {
  * @param int $revision_id
  * @return void
  */
-function restore_post_revision( $post_id, $revision_id ) {
-	global $CFRM_POSTMETA_KEYS;
-	if ( ! have_keys() ) {
+function cfrm_restore_post_revision( $post_id, $revision_id ) {
+	$cfrm_postmeta_keys = cfr_get_postmeta_keys();
+	if ( ! cfrm_have_keys() ) {
 		return false;
 	}
 
-	foreach ( $CFRM_POSTMETA_KEYS as $postmeta_type ) {
+	foreach ( $cfrm_postmeta_keys as $postmeta_type ) {
 		$postmeta_key = $postmeta_type['postmeta_key'];
 
 		if ( $postmeta_value = get_metadata( 'post', $revision_id, $postmeta_key, true ) ) {
 			if ( get_metadata( 'post', $post_id, $postmeta_key, true ) ) {
-				log_msg( 'Updating postmeta: '.$postmeta_key.' for post: '.$post_id.' from revision: '.$revision_id );
+				cfrm_log_msg( 'Updating postmeta: '.$postmeta_key.' for post: '.$post_id.' from revision: '.$revision_id );
 				update_metadata( 'post', $post_id, $postmeta_key, $postmeta_value );
 			}
 			else {
-				log_msg( 'Adding postmeta: '.$postmeta_key.' for post: '.$post_id );
+				cfrm_log_msg( 'Adding postmeta: '.$postmeta_key.' for post: '.$post_id );
 				add_metadata( 'post', $post_id, $postmeta_key, $postmeta_value, true );
 			}
-			log_msg( 'Restored post_id: '.$post_id.' metadata from: '.$postmeta_key );
+			cfrm_log_msg( 'Restored post_id: '.$post_id.' metadata from: '.$postmeta_key );
 		}
 	}
 }
-add_action( 'wp_restore_post_revision', 'restore_post_revision', 10, 2 );
+add_action( 'wp_restore_post_revision', 'cfrm_restore_post_revision', 10, 2 );
 
-function log_msg( $message ) {
-	//if (CF_REVISIONS_DEBUG) {
-		error_log( $message );
-	//}
+/**
+ * Display log msg.
+ */
+function cfrm_log_msg( $message ) {
+	error_log( $message );
 }
 
+/**
+ * Add filter
+ */
 function cfrm_add_filter() {
 	global $pagenow;
 	if ( $pagenow == 'revision.php' ) {
@@ -343,26 +393,37 @@ function cfrm_add_filter() {
 }
 add_action( 'admin_init', 'cfrm_add_filter' );
 
-/*function post_revision_fields( $fields ) {
+/**
+ * Add post revision fields filter
+ *
+ * @param  string $fields
+ *
+ * @return array returns fields
+ */
+function post_revision_fields( $fields ) {
 	$fields['postmeta'] = 'Post Meta';
 	return $fields;
-}*/
-
-/*function post_revision_field( $field_id, $field ) {
-
-	global $CFRM_POSTMETA_KEYS;
-	if ( $field != 'postmeta' || ! have_keys() ) {
+}
+/**
+ * Add post revision field filter
+ *
+ * @param  int   $field_id
+ * @param  string $field
+ *
+ * @return string returns string
+ */
+function post_revision_field( $field_id, $field ) {
+	$cfrm_postmeta_keys = cfr_get_postmeta_keys();
+	if ( $field != 'postmeta' || ! cfrm_have_keys() ) {
 		return;
 	}
 
-	//remove_filter( '_wp_post_revision_field_postmeta', 'htmlspecialchars', 10, 2 );
+	remove_filter( '_wp_post_revision_field_postmeta', 'htmlspecialchars', 10, 2 );
 
-	//$html = '<ul style="white-space: normal; margin-left: 1.5em; list-style: disc outside;background-color:red;">';
-	foreach ( $CFRM_POSTMETA_KEYS as $postmeta_type ) {
-
+	$html = '<ul style="white-space: normal; margin-left: 1.5em; list-style: disc outside;background-color:red;">';
+	foreach ( $cfrm_postmeta_keys as $postmeta_type ) {
 		$postmeta_key = $postmeta_type['postmeta_key'];
 		$postmeta = maybe_unserialize( get_metadata( 'post', intval( $_GET['revision'] ), $postmeta_key, true ) );
-
 		if ( ! empty( $postmeta ) ) {
 
 			if ( ! empty( $postmeta_type['display_func']) && function_exists( $postmeta_type['display_func'] ) ) {
@@ -374,7 +435,6 @@ add_action( 'admin_init', 'cfrm_add_filter' );
 			}
 		}
 		else {
-			echo "test";
 			$postmeta_html = '*empty postmeta value*';
 		}
 
@@ -388,5 +448,4 @@ add_action( 'admin_init', 'cfrm_add_filter' );
 	$html .= '</ul>';
 
 	return $html;
-}*/
-
+}
