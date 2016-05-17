@@ -3,199 +3,310 @@
 Plugin Name: CF Revision Manager
 Plugin URI: http://crowdfavorite.com
 Description: Revision management functionality so that plugins can add metadata to revisions as well as restore that metadata from revisions
-Version: 1.0.2
+Version: 2.0.0
 Author: Crowd Favorite
-Author URI: http://crowdfavorite.com 
+Author URI: http://crowdfavorite.com
+License: GPL2
+License URI: https://www.gnu.org/licenses/gpl-2.0.html
+Domain Path: /languages
+Text Domain: cfrm
 */
-if (!class_exists('cf_revisions')) {
-	
-	define('CF_REVISIONS_DEBUG', false);
-	
-	function cfr_register_metadata($postmeta_key, $display_func = '') {
-		static $cfr;
-		if (empty($cfr)) {
-			$cfr = cf_revisions::get_instance();
-		} 
-		return $cfr->register($postmeta_key, $display_func);
-	}
 
-	class cf_revisions {
-		private static $_instance;
-		protected $postmeta_keys = array();
-	
-		public function __construct() {
-			# save & restore
-			add_action('save_post', array($this, 'save_post_revision'), 10, 2);
-			add_action('wp_restore_post_revision', array($this, 'restore_post_revision'), 10, 2);
+/**
+ * Adding admin menu for Revision meta settings.
+ *
+ * @since 2.0.0
+ */
+function cfrm_wp_revisions_manager() {
+	add_submenu_page(
+		'options-general.php',
+		__( 'Revisions Manager Settings', 'cfrm' ),
+		__( 'Revision Manager', 'cfrm' ),
+		'administrator',
+		'wp_revisions_manager',
+		'cfrm_revisions_manager_list'
+		);
 
-			if (is_admin()) {		
-				# revision display
-				global $pagenow;
-				if ($pagenow == 'revision.php') {
-					add_filter('_wp_post_revision_fields', array($this, 'post_revision_fields'), 10, 1);
-					add_filter('_wp_post_revision_field_postmeta', array($this, 'post_revision_field'), 1, 2);
-				}
-			}
-		}
-	
-		public function register($postmeta_key, $display_func = '') {
-			if (!in_array($postmeta_key, $this->postmeta_keys, true)) {
-				$this->postmeta_keys[] = compact('postmeta_key', 'display_func');
-			}
-			return true;
-		}
-	
-		/**
-		 * This is a paranoid check. There will be no object to register the 
-		 * actions and filters if nobody adds any postmeta to be handled
-		 *
-		 * @return bool
-		 */
-		public function have_keys() {
-			return (bool) count($this->postmeta_keys);
-		}
-	
+}
+add_action('admin_menu', 'cfrm_wp_revisions_manager');
 
-		/**
-		* The opposite of WordPress stripslashes_deep, since wp_slash
-		* only works on arrays of strings.
-		**/
-		public function slash_deep($value) {
-			if (is_array($value)) {
-				$value = array_map(array($this, 'slash_deep'), $value);
-			}
-			else if (is_object($value)) {
-				$vars = get_object_vars($value);
-				foreach ($vars as $key => $data) {
-					$value->{$key} = $this->slash_deep($data);
-				}
-			} else if (is_string($value)) {
-				$value = wp_slash($value);
-			}
+/**
+ * Callback function for revisions settings page.
+ *
+ * @since 2.0.0
+ */
+function cfrm_revisions_manager_list() {
+	//Handles Form Submission.
+	cfrm_revision_process_submission();
+	//Display list of all metas.
+	cfrm_revision_display_metas();
+}
 
-			return $value;
-		}
-
-
-		/**
-		 * Save the revision data
-		 *
-		 * @param int $post_id 
-		 * @param object $post 
-		 * @return void
-		 */
-		public function save_post_revision($post_id, $post) {
-			if ($post->post_type != 'revision' || !$this->have_keys()) {
-				return false;
-			}
-		
-			foreach ($this->postmeta_keys as $postmeta_type) {
-				$postmeta_key = $postmeta_type['postmeta_key'];
-			
-				if ($postmeta_values = get_post_meta($post->post_parent, $postmeta_key)) {
-					foreach ($postmeta_values as $postmeta_value) {
-						add_metadata('post', $post_id, $this->slash_deep($postmeta_key), $this->slash_deep($postmeta_value));
-					}
-					$this->log('Added postmeta for: '.$postmeta_key.' to revision: '.$post_id.' from post: '.$post->post_parent);
-				}
-			}
-		}
-	
-		/**
-		 * Revert the revision data
-		 *
-		 * @param int $post_id 
-		 * @param int $revision_id 
-		 * @return void
-		 */
-		public function restore_post_revision($post_id, $revision_id) {
-			if (!$this->have_keys()) {
-				return false;
-			}
-		
-			foreach ($this->postmeta_keys as $postmeta_type) {
-				$postmeta_key = $postmeta_type['postmeta_key'];
-				delete_metadata('post', $post_id, $this->slash_deep($postmeta_key));
-				// get_metadata does not unslash
-				if ($postmeta_values = get_metadata('post', $revision_id, $postmeta_key)) {
-					foreach ($postmeta_values as $postmeta_value) {
-						$this->log('Setting postmeta: '.$postmeta_key.' for post: '.$post_id);
-						add_metadata('post', $post_id, $this->slash_deep($postmeta_key), $this->slash_deep($postmeta_value), true);
-					}
-					$this->log('Restored post_id: '.$post_id.' metadata from: '.$postmeta_key);
-				}
-			}
-		}
-	
-		public function post_revision_fields($fields) {
-			$fields['postmeta'] = __('Post Meta');
-			return $fields;
-		}
-	
-		public function post_revision_field($field_id, $field) {
-			if ($field != 'postmeta' || !$this->have_keys()) {
-				return;
-			}
-		
-			remove_filter('_wp_post_revision_field_postmeta', 'htmlspecialchars', 10, 2);
-				
-			$html = '<ul style="white-space: normal; margin-left: 1.5em; list-style: disc outside;">';
-			foreach ($this->postmeta_keys as $postmeta_type) {
-				$postmeta_html = '';
-				$postmeta_key = $postmeta_type['postmeta_key'];
-				$postmeta_values = get_metadata('post', intval($_GET['revision']), $postmeta_key);
-				if (is_array($postmeta_values)) {
-					foreach ($postmeta_values as $postmeta_value) {
-						$postmeta_html .= '<div>';
-						$postmeta_value = maybe_unserialize($postmeta_value);
-						if (!empty($postmeta_value)) {
-							if (!empty($postmeta_type['display_func']) && function_exists($postmeta_type['display_func'])) {
-								$postmeta_html .= $postmeta_type['display_func']($postmeta_value);
-							}
-							else {
-								$postmeta_rendered = (is_array($postmeta_value) || is_object($postmeta_value) ? print_r($postmeta_value, true) : $postmeta_value);
-								$postmeta_html .= apply_filters('_wp_post_revision_field_postmeta_display', htmlspecialchars($postmeta_rendered), $postmeta_key, $postmeta_value);
-							}
-						}
-						$postmeta_html .= '</div>';
-					}
-				}
-				else {
-					$postmeta_html .= '*empty postmeta value*';
-				}
-			
-				$html .= '
-					<li>
-						<h3><a href="#postmeta-'.$postmeta_key.'" onclick="jQuery(\'#postmeta-'.$postmeta_key.'\').slideToggle(); return false;">'.$postmeta_key.'</a></h3>
-						<div id="postmeta-'.$postmeta_key.'" style="display: none;">'.$postmeta_html.'</div>
-					</li>
-					';
-			}
-			$html .= '</ul>';
-		
-			return $html;
-		}
-	
-		/**
-		 * Singleton
-		 *
-		 * @return object
-		 */
-		public static function get_instance() {
-			if (!(self::$_instance instanceof cf_revisions)) {
-				self::$_instance = new cf_revisions;
-			}
-			return self::$_instance;
-		}
-	
-		protected function log($message) {
-			if (CF_REVISIONS_DEBUG) {
-				error_log($message);
-			}
+/**
+ * Processes form revision manager form submission.
+ *
+ * @since 2.0.0
+ */
+function cfrm_revision_process_submission() {
+	if ( isset( $_POST['cfrm_exclude_submit'] ) ) {
+		if ( isset( $_POST['cfrm_exclude_meta'] ) ) {
+			$exclude_metas = $_POST['cfrm_exclude_meta'];
+			update_option( 'cfrm_exclude_meta', $exclude_metas );
 		}
 	}
+}
 
-	if (defined('CF_REVISIONS_DEBUG') && CF_REVISIONS_DEBUG) {
-		include('tests.php');
+/**
+ * Outputs html for the form meta list.
+ *
+ * @since 2.0.0
+ */
+function cfrm_revision_display_metas() {
+	$meta_keys = cfrm_get_meta_keys();
+
+	$html = cfrm_get_settings_header();
+	$html .= cfrm_get_settings_meta_list( $meta_keys );
+	$html .= cfrm_get_settings_footer();
+
+	echo $html;
+}
+
+/**
+ * Returns a list of all metas associated with any post type.
+ *
+ * @since  2.0.0
+ *
+ * @return Array An array of all meta keys.
+ */
+function cfrm_get_meta_keys() {
+	global $wpdb;
+	return $wpdb->get_col( "SELECT DISTINCT(meta_key) FROM $wpdb->postmeta" );
+}
+
+/**
+ * Get List of meta keys associated with a particular post.
+ *
+ * @since  2.0.0
+ *
+ * @param  $post_id Integer Post ID.
+ * @return          Array   An array of all metakeys associated with the post.
+ */
+function cfrm_get_post_meta_keys( $post_id = 0 ) {
+	$metas = get_post_meta( $post_id );
+	return array_keys( $metas );
+}
+
+/**
+ * Outputs the header section of the settings page.
+ *
+ * @since  2.0.0
+ *
+ * @return String An html output of the header.
+ */
+function cfrm_get_settings_header() {
+	$html = '<div class="wrap">';
+	$html .= sprintf(
+		'<h1>%1$s</h1>
+		<p>%2$s</p>',
+		__( 'WP Revision Manager Settings', 'cfrm' ),
+		__( 'Please select those meta_keys for which you dont want revision to be stored.', 'cfrm' )
+		);
+	$html .= '<form action="" method="post">';
+	$html .= '<ul style="display:inline-block;width:100%;">';
+	return $html;
+}
+
+/**
+ * Outputs the list of metas for the settings page.
+ *
+ * @since  2.0.0
+ *
+ * @param  $meta_meys Array  An array of all meta keys on site.
+ * @return            String An html output of the header.
+ */
+function cfrm_get_settings_meta_list( $meta_keys ) {
+	//Fetches Excluded Revisions
+	$cfrm_exclude_meta_arr = cfrm_get_excluded_revisions();
+
+	$html = '';
+	foreach ( $meta_keys as $meta_key ) {
+		$checked = '';
+		if ( in_array( $meta_key, $cfrm_exclude_meta_arr ) ) {
+			$checked = ' checked="checked"';
+		}
+		$html .= '<li style="width:30%;float:left;">';
+		$html .= sprintf(
+			'<input type="checkbox" name="cfrm_exclude_meta[]" value="%1$s" id="%1$s"%2$s />
+			<label for="%1$s">%1$s</label>',
+			$meta_key,
+			$checked
+			);
+		$html .= '</li>';
 	}
+	return $html;
+}
+
+/**
+ * Outputs the footer section of the settings page.
+ *
+ * @since  2.0.0
+ *
+ * @return String An html output of the footer.
+ */
+function cfrm_get_settings_footer() {
+	$html = '</ul>';
+	$html .= sprintf(
+		'<p class="submit">
+			<input type="submit" name="cfrm_exclude_submit" id="submit" class="%1$s" value="%2$s">
+		</p>',
+		'button button-primary',
+		__( 'Save Changes', 'cfrm' )
+		);
+	$html .= '</form>';
+	$html .= '</div>';
+	return $html;
+}
+
+/**
+ * Get list of metas to be excluded from revisions.
+ *
+ * @since  2.0.0
+ *
+ * @return Array An array of meta keys to be excluded from revisions.
+ */
+function cfrm_get_excluded_revisions() {
+	$excludes_saved = get_option( 'cfrm_exclude_meta' );
+	if ( ! empty( $excludes_saved ) ) {
+		return $excludes_saved;
+	}
+	return array();
+}
+
+/**
+ * Store meta's for revision on post save.
+ *
+ * @since 2.0.0
+ *
+ * @param $post_id Integer Post ID.
+ * @param $post    Object  Post Details.
+ */
+function cfrm_save_post_revision( $post_id, $post ) {
+	if ( 'revision' != $post->post_type ) {
+		return false;
+	}
+
+	$cfrm_post_meta_keys = cfrm_get_post_metas( $post->post_parent );
+
+	foreach ( $cfrm_post_meta_keys as $postmeta_key ) {
+
+		$postmeta_values = get_post_meta( $post->post_parent, $postmeta_key );
+		$excluded_keys = cfrm_get_excluded_revisions();
+		if ( ! empty( $postmeta_values ) && ! in_array( $postmeta_key, $excluded_keys ) ) {
+			cfrm_update_post_meta( $post_id, $postmeta_key, $postmeta_values );
+		}
+	}
+}
+add_action( 'save_post', 'cfrm_save_post_revision', 10, 2 );
+
+/**
+ * Revert Meta values on revision restore.
+ *
+ * @since 2.0.0
+ *
+ * @param $post_id     Integer Post ID.
+ * @param $revision_id Integer Post Revision ID.
+ */
+function cfrm_restore_post_revision( $post_id, $revision_id ) {
+	$cfrm_post_meta_keys = cfrm_get_post_metas( $post_id );
+
+	if ( ! $cfrm_post_meta_keys ) {
+		return false;
+	}
+
+	foreach ( $cfrm_post_meta_keys as $postmeta_key ) {
+		$postmeta_values = get_post_meta( $revision_id, $postmeta_key );
+		delete_post_meta( $post_id, $postmeta_key );
+		if ( ! empty( $postmeta_values ) ) {
+			cfrm_update_post_meta( $post_id, $postmeta_key, $postmeta_values );
+		}
+	}
+}
+add_action( 'wp_restore_post_revision', 'cfrm_restore_post_revision', 10, 2 );
+
+/**
+ * Update Post Meta for all post meta values.
+ *
+ * @since 2.0.0
+ *
+ * @param $post_id         Integer Post ID.
+ * @param $postmeta_key    String  Post Meta Key against which value is retieved and stored.
+ * @param $postmeta_values Array   All Post Meta Values to iterate and store.
+ */
+function cfrm_update_post_meta( $post_id, $postmeta_key, $postmeta_values ) {
+	foreach ( $postmeta_values as $postmeta_value ) {
+		update_post_meta( $post_id, $postmeta_key, $postmeta_value );
+	}
+}
+
+function cfrm_admin_revisions() {
+	global $pagenow;
+	if ( $pagenow == 'revision.php' ) {
+		add_filter( '_wp_post_revision_fields', 'cfrm_post_revision_fields', 10, 1 );
+		add_filter( '_wp_post_revision_field_postmeta', 'cfrm_post_revision_field', 1, 2 );
+	}
+}
+add_action( 'admin_init', 'cfrm_admin_revisions' );
+
+function cfrm_post_revision_fields( $fields ) {
+	$fields['postmeta'] = __( 'Post Meta', 'cfrm' );
+	return $fields;
+}
+
+function cfrm_post_revision_field( $field_id, $field ) {
+	if ( 'postmeta' != $field ) {
+		return;
+	}
+
+	remove_filter( '_wp_post_revision_field_postmeta', 'htmlspecialchars', 10, 2 );
+
+	$html = '<ul style="white-space: normal; margin-left: 1.5em; list-style: disc outside;">';
+
+	$revision_id = intval( $_GET['revision'] );
+
+	$postmeta_keys = cfrm_get_post_metas( $revision_id );
+
+	foreach ( $postmeta_keys as $postmeta_type ) {
+		$postmeta_html = '';
+		$postmeta_key = $postmeta_type['postmeta_key'];
+		$postmeta_values = get_metadata('post', intval($_GET['revision']), $postmeta_key);
+		if (is_array($postmeta_values)) {
+			foreach ($postmeta_values as $postmeta_value) {
+				$postmeta_html .= '<div>';
+				$postmeta_value = maybe_unserialize($postmeta_value);
+				if (!empty($postmeta_value)) {
+					if (!empty($postmeta_type['display_func']) && function_exists($postmeta_type['display_func'])) {
+						$postmeta_html .= $postmeta_type['display_func']($postmeta_value);
+					}
+					else {
+						$postmeta_rendered = (is_array($postmeta_value) || is_object($postmeta_value) ? print_r($postmeta_value, true) : $postmeta_value);
+						$postmeta_html .= apply_filters('_wp_post_revision_field_postmeta_display', htmlspecialchars($postmeta_rendered), $postmeta_key, $postmeta_value);
+					}
+				}
+				$postmeta_html .= '</div>';
+			}
+		}
+		else {
+			$postmeta_html .= '*empty postmeta value*';
+		}
+
+		$html .= '
+			<li>
+				<h3><a href="#postmeta-'.$postmeta_key.'" onclick="jQuery(\'#postmeta-'.$postmeta_key.'\').slideToggle(); return false;">'.$postmeta_key.'</a></h3>
+				<div id="postmeta-'.$postmeta_key.'" style="display: none;">'.$postmeta_html.'</div>
+			</li>
+			';
+	}
+	$html .= '</ul>';
+
+	return $html;
 }
