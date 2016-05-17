@@ -75,13 +75,8 @@ function cfrm_revision_display_metas() {
  * @return Array An array of all meta keys.
  */
 function cfrm_get_meta_keys() {
-	$postmeta_keys = array();
-	$posts = get_posts( array( 'post_type' => get_post_types(), 'posts_per_page' => -1 ) );
-	foreach ( $posts as $post ) {
-		$meta_keys = cfrm_get_post_metas( $post->ID );
-		$postmeta_keys = array_unique( array_merge( $postmeta_keys, $meta_keys ) );
-	}
-	return array_values( $postmeta_keys );
+	global $wpdb;
+	return $wpdb->get_col( "SELECT DISTINCT(meta_key) FROM $wpdb->postmeta" );
 }
 
 /**
