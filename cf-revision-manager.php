@@ -54,7 +54,6 @@ add_action( 'admin_menu', 'cfrm_admin_menu' );
  * @return void
  */
 function cfrm_admin_form() {
-	//include_once plugin_dir_path( __FILE__ ) . 'includes/admin-form.php';
 	wp_enqueue_style( 'cfrm-style' );
 	wp_enqueue_script( 'cfrm-script' );
 	$required_keys = cfrm_set_required_keys();
@@ -72,13 +71,7 @@ function cfrm_admin_form() {
 				echo '<div>
 				<ul id="cfr_revision_manager_keys_required">';
 				foreach ( $required_keys as $key ) {
-					$checked = $key;
-					$disabled = $key;
-					$id = 'cf_revision_manager_key_' . esc_attr( $key );
-					echo '<li>
-						<input type="checkbox" name="revision_manager_keys[]" id="' . $id . '" value="' . esc_attr( $key ) . '" ' . checked( $key, $checked, false ) . ' ' . disabled( $key, $disabled, false ) . ' />
-						<label for="' . $id . '">' . esc_html( $key ) . '</label>
-					</li>';
+					echo '<li>' . cfrm_settings_meta_checkbox( $key ) . '</li>';
 				}
 				echo '</ul>
 				</div>';
@@ -87,18 +80,12 @@ function cfrm_admin_form() {
 				<div>
 				<ul id="cfr_revision_manager_keys">';
 			foreach ( $keys as $key ) {
-				$checked = ( in_array( $key, cfrm_get_selected_keys() ) ? $key : '' );
-				$disabled = '';
-				$id = 'cf_revision_manager_key_' . esc_attr( $key );
-				echo '<li>
-					<input type="checkbox" name="revision_manager_keys[]" id="' . $id . '" value="' . esc_attr( $key ) . '" ' . checked( $key, $checked, false ) . ' ' . disabled( $key, $disabled, false ) . ' />
-					<label for="' . $id . '">' . esc_html( $key ) . '</label>
-				</li>';
+				echo '<li>' . cfrm_settings_meta_checkbox( $key ) . '</li>';
 			}
 			echo '</ul>
 				</div>
 				<p class="submit">
-				<input type="submit" name="submit_button" class="button-primary" value="' . __( 'Save', 'cfrm' ) . '" />
+				<input type="submit" name="submit_button" class="button-primary" value="' . esc_attr__( 'Save', 'cfrm' ) . '" />
 				</p>
 				<input type="hidden" name="cf_action" value="cfr_save_keys" class="hidden" style="display: none;" />
 				' . wp_nonce_field( 'cfr_save_keys', '_wpnonce', true, false ) . wp_referer_field( false ) . '
@@ -107,6 +94,26 @@ function cfrm_admin_form() {
 ?>
 </div>
 <?php
+}
+
+/**
+ * Output a single meta input for the revision manager settings page.
+ *
+ * @since  2.0.0
+ *
+ * @param  string $meta_key Meta key.
+ * @return string           HTML Markup.
+ */
+function cfrm_settings_meta_checkbox( $meta_key = '' ) {
+    $required = in_array( $meta_key, cfrm_set_required_keys() );
+    $checked = $required ? $required : in_array( $meta_key, cfrm_get_selected_keys() );
+    return sprintf( '<p><label for="%1$s"><input type="checkbox" name="revision_manager_keys[]" id="%1$s" value="%2$s" %3$s %4$s />%5$s</label></p>',
+        esc_attr( "cf_revision_manger_key_{$meta_key}" ),
+        esc_attr( $meta_key ),
+        checked( $checked, true, false ),
+        disabled( $required, true, false ),
+        esc_html( $meta_key )
+    );
 }
 
 /**
