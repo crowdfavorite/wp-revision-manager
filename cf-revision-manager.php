@@ -87,7 +87,7 @@ function cfrm_get_meta_keys() {
  * @param  $post_id Integer Post ID.
  * @return          Array   An array of all metakeys associated with the post.
  */
-function cfrm_get_post_metas( $post_id ) {
+function cfrm_get_post_meta_keys( $post_id = 0 ) {
 	$metas = get_post_meta( $post_id );
 	return array_keys( $metas );
 }
