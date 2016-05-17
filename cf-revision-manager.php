@@ -60,9 +60,9 @@ function cfrm_revision_process_submission() {
 function cfrm_revision_display_metas() {
 	$meta_keys = cfrm_get_meta_keys();
 
-	$html = cfrm_get_page_header();
-	$html .= cfrm_get_page_meta_list( $meta_keys );
-	$html .= cfrm_get_page_footer();
+	$html = cfrm_get_settings_header();
+	$html .= cfrm_get_settings_meta_list( $meta_keys );
+	$html .= cfrm_get_settings_footer();
 
 	echo $html;
 }
@@ -99,7 +99,7 @@ function cfrm_get_post_meta_keys( $post_id = 0 ) {
  *
  * @return String An html output of the header.
  */
-function cfrm_get_page_header() {
+function cfrm_get_settings_header() {
 	$html = '<div class="wrap">';
 	$html .= '<h1>WP Revision Manager Settings</h1>';
 	$html .= '<p>Please select those meta_keys for which you dont want revision to be stored.</p>';
@@ -116,7 +116,7 @@ function cfrm_get_page_header() {
  * @param  $meta_meys Array  An array of all meta keys on site.
  * @return            String An html output of the header.
  */
-function cfrm_get_page_meta_list( $meta_keys ) {
+function cfrm_get_settings_meta_list( $meta_keys ) {
 	//Fetches Excluded Revisions
 	$cfrm_exclude_meta_arr = cfrm_get_excluded_revisions();
 
@@ -145,7 +145,7 @@ function cfrm_get_page_meta_list( $meta_keys ) {
  *
  * @return String An html output of the footer.
  */
-function cfrm_get_page_footer() {
+function cfrm_get_settings_footer() {
 	$html = '</ul>';
 	$html .= '<p class="submit">
 			<input type="submit" name="cfrm_exclude_submit" id="submit" class="button button-primary" value="Save Changes">
