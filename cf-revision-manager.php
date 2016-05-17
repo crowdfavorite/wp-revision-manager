@@ -20,8 +20,8 @@ Text Domain: cfrm
 function cfrm_wp_revisions_manager() {
 	add_submenu_page(
 		'options-general.php',
-		'Revisions Manager Settings',
-		'Revision Manager',
+		__( 'Revisions Manager Settings', 'cfrm' ),
+		__( 'Revision Manager', 'cfrm' ),
 		'administrator',
 		'wp_revisions_manager',
 		'cfrm_revisions_manager_list'
@@ -105,8 +105,12 @@ function cfrm_get_post_meta_keys( $post_id = 0 ) {
  */
 function cfrm_get_settings_header() {
 	$html = '<div class="wrap">';
-	$html .= '<h1>WP Revision Manager Settings</h1>';
-	$html .= '<p>Please select those meta_keys for which you dont want revision to be stored.</p>';
+	$html .= sprintf(
+		'<h1>%1$s</h1>
+		<p>%2$s</p>',
+		__( 'WP Revision Manager Settings', 'cfrm' ),
+		__( 'Please select those meta_keys for which you dont want revision to be stored.', 'cfrm' )
+		);
 	$html .= '<form action="" method="post">';
 	$html .= '<ul style="display:inline-block;width:100%;">';
 	return $html;
@@ -151,9 +155,13 @@ function cfrm_get_settings_meta_list( $meta_keys ) {
  */
 function cfrm_get_settings_footer() {
 	$html = '</ul>';
-	$html .= '<p class="submit">
-			<input type="submit" name="cfrm_exclude_submit" id="submit" class="button button-primary" value="Save Changes">
-			</p>';
+	$html .= sprintf(
+		'<p class="submit">
+			<input type="submit" name="cfrm_exclude_submit" id="submit" class="%1$s" value="%2$s">
+		</p>',
+		'button button-primary',
+		__( 'Save Changes', 'cfrm' )
+		);
 	$html .= '</form>';
 	$html .= '</div>';
 	return $html;
@@ -250,7 +258,7 @@ function cfrm_admin_revisions() {
 add_action( 'admin_init', 'cfrm_admin_revisions' );
 
 function cfrm_post_revision_fields( $fields ) {
-	$fields['postmeta'] = __('Post Meta');
+	$fields['postmeta'] = __( 'Post Meta', 'cfrm' );
 	return $fields;
 }
 
