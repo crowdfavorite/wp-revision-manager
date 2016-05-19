@@ -62,7 +62,7 @@ function cfrm_admin_form() {
 <div class="wrap">
 	<h2><?php _e( 'CF Revision Manager', 'cfrm' ); ?></h2>
 <?php
-		if ( ! count( $keys ) ) {
+		if ( empty( $keys ) ) {
 			echo '<p>' . __( 'No custom fields found.', 'cfrm' ) . '</p>';
 		} else {
 			echo '<form id="cfr_revision_manager_form" name="cfr_revision_manager_form" action="' . admin_url( 'options-general.php' ) . '" method="post">
@@ -184,14 +184,14 @@ function cfrm_get_selected_keys() {
  * @return void
  */
 function cfrm_register_meta() {
-	if ( function_exists( 'cfr_register_metadata' ) ) {
-		//cfr_register_metadata( 'foo', 'abcd' );
+	if ( function_exists( 'cfrm_register_metadata' ) ) {
+		//cfrm_register_metadata( 'foo', 'abcd' );
 		global $CFR_KEYS_REQUIRED;
-		$CFR_KEYS_REQUIRED = cfr_get_registered_keys();
+		$CFR_KEYS_REQUIRED = cfrm_get_registered_keys();
 		$keys = cfrm_get_selected_keys();
 		if ( count( $keys ) ) {
 			foreach ( $keys as $key ) {
-				cfr_register_metadata( $key );
+				cfrm_register_metadata( $key );
 			}
 		}
 	}
@@ -205,8 +205,8 @@ add_action( 'init', 'cfrm_register_meta', 999 );
  *
  * @return array returns registered meta key.
  */
-function cfr_register_metadata( $postmeta_key, $display_func = '' ) {
-	return cfr_process_metadata( $postmeta_key, $display_func );
+function cfrm_register_metadata( $postmeta_key, $display_func = '' ) {
+	return cfrm_process_metadata( $postmeta_key, $display_func );
 }
 
 /**
@@ -216,11 +216,11 @@ function cfr_register_metadata( $postmeta_key, $display_func = '' ) {
  *
  * @return bool
  */
-function cfr_process_metadata( $postmeta_key, $display_func = '' ) {
+function cfrm_process_metadata( $postmeta_key, $display_func = '' ) {
 	$postmeta_keys = array();
 	if ( ! in_array( $postmeta_key, $postmeta_keys, true ) ) {
 		$postmeta_keys[] = compact( 'postmeta_key', 'display_func' );
-		update_option( 'cfrm_set_postmeta_keys', array_unique( $postmeta_keys ) );
+		update_option( 'cf_set_postmeta_keys', array_unique( $postmeta_keys ) );
 	}
 	return true;
 }
@@ -232,9 +232,9 @@ function cfr_process_metadata( $postmeta_key, $display_func = '' ) {
  *
  * @return array returns unique postmeta key.
  */
-function cfr_get_registered_keys() {
+function cfrm_get_registered_keys() {
 	$keys = array();
-	$registered_keys = cfr_get_postmeta_keys();
+	$registered_keys = cfrm_get_postmeta_keys();
 
 	if ( count( $registered_keys ) ) {
 		foreach ( $registered_keys as $key ) {
@@ -252,8 +252,8 @@ function cfr_get_registered_keys() {
  *
  * @return array returns postmeta keys.
  */
-function cfr_get_postmeta_keys() {
-	return get_option( 'cfrm_set_postmeta_keys', true );
+function cfrm_get_postmeta_keys() {
+	return get_option( 'cf_set_postmeta_keys', true );
 }
 
 /**
@@ -323,7 +323,7 @@ add_action( 'admin_notices', 'cfrm_admin_notices' );
  * @return void
  */
 function cfrm_save_post_revision( $post_id, $post ) {
-	$cfrm_postmeta_keys = cfr_get_postmeta_keys();
+	$cfrm_postmeta_keys = cfrm_get_postmeta_keys();
 	if ( $post->post_type != 'revision' || ! cfrm_have_keys() ) {
 		return false;
 	}
@@ -346,7 +346,7 @@ add_action( 'save_post', 'cfrm_save_post_revision', 10, 2 );
  * @return bool
  */
 function cfrm_have_keys() {
-	$cfrm_postmeta_keys = cfr_get_postmeta_keys();
+	$cfrm_postmeta_keys = cfrm_get_postmeta_keys();
 	return (bool) count( $cfrm_postmeta_keys );
 }
 
@@ -358,7 +358,7 @@ function cfrm_have_keys() {
  * @return void
  */
 function cfrm_restore_post_revision( $post_id, $revision_id ) {
-	$cfrm_postmeta_keys = cfr_get_postmeta_keys();
+	$cfrm_postmeta_keys = cfrm_get_postmeta_keys();
 	if ( ! cfrm_have_keys() ) {
 		return false;
 	}
@@ -420,7 +420,7 @@ function post_revision_fields( $fields ) {
  * @return string returns string
  */
 function post_revision_field( $field_id, $field ) {
-	$cfrm_postmeta_keys = cfr_get_postmeta_keys();
+	$cfrm_postmeta_keys = cfrm_get_postmeta_keys();
 	if ( $field != 'postmeta' || ! cfrm_have_keys() ) {
 		return;
 	}
