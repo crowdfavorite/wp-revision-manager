@@ -1,0 +1,12 @@
+#cfr_revision_manager_form .cf-col {
+	float: left;
+	overflow: hidden;
+	width: 33%;
+}
+#cfr_revision_manager_form .submit {
+	clear: both;
+}
+#cfr_revision_manager_form .clearfix {
+	clear: both;
+}
+

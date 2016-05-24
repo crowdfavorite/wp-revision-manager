@@ -1,5 +1,9 @@
 # CF Revision Manager Changelog
 
+## 2.0.0
+
+- To work with WP 4.4+
+
 ## 1.0.2
 
 - Slash postmeta keys and values appropriately
